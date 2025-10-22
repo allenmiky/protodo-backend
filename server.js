@@ -11,14 +11,11 @@ connectDB();
 const app = express();
 
 /* ✅ CORS — Allow only your specific frontend */
-app.use((req, res, next) => {
+ app.use((req, res, next) => {
   const origin = req.headers.origin;
 
-  // ✅ Only allow this URL
-  const allowedOrigin = "https://proto-frontend-7xft.vercel.app";
-
-  if (origin === allowedOrigin) {
-    res.header("Access-Control-Allow-Origin", allowedOrigin);
+  if (origin && origin.includes(".vercel.app")) {
+    res.header("Access-Control-Allow-Origin", origin); // allow this Vercel origin
   }
 
   res.header("Access-Control-Allow-Credentials", "true");
@@ -37,6 +34,7 @@ app.use((req, res, next) => {
 
   next();
 });
+
 
 /* ✅ Body Parsers */
 app.use(express.json({ limit: "10mb" }));
