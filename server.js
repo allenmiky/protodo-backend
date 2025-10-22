@@ -15,7 +15,6 @@ const app = express();
 app.use((req, res, next) => {
   const origin = req.headers.origin;
 
-  // Allow these domains dynamically
   if (
     origin &&
     (origin.includes("ngrok-free.dev") ||
@@ -25,21 +24,23 @@ app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", origin);
   }
 
-  // Required CORS headers
   res.header("Access-Control-Allow-Credentials", "true");
   res.header(
     "Access-Control-Allow-Headers",
     "Origin, X-Requested-With, Content-Type, Accept, Authorization"
   );
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
 
-  // Handle preflight requests immediately
+  // ✅ Added PATCH here
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
+
   if (req.method === "OPTIONS") {
     return res.sendStatus(200);
   }
 
   next();
 });
+
+
 /* -------------------------------------------------------------------------- */
 
 // ✅ Body parsers
