@@ -23,7 +23,12 @@
   "devDependencies": {
     "nodemon": "^3.1.0"
   },
-  "keywords": ["todo", "backend", "express", "mongodb"],
+  "keywords": [
+    "todo",
+    "backend",
+    "express",
+    "mongodb"
+  ],
   "author": "allen miky",
   "license": "ISC"
 }
