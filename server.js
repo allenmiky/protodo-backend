@@ -10,21 +10,23 @@ connectDB();
 
 const app = express();
 
-/* ✅ CORS FIX — Allow Serveo, Vercel, and localhost */
+/* ✅ CORS FIX — Allow any Vercel frontend + localhost + ngrok/serveo */
 app.use((req, res, next) => {
   const origin = req.headers.origin;
 
-  // ✅ Allowed origins list
-  const allowedOrigins = [
-    "https://proto-frontend-omega.vercel.app",
-    "https://vercel.app",
-    "https://localhost:5173",
-    "https://127.0.0.1:5173",
+  // ✅ Allowed origins list (other than Vercel)
+  const allowedOtherOrigins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
     "https://ngrok-free.dev",
     "https://serveo.net"
   ];
 
-  if (allowedOrigins.some((allowed) => origin && origin.includes(allowed))) {
+  // ✅ Allow any Vercel domain OR other allowed origins
+  if (
+    (origin && origin.includes("vercel.app")) ||
+    allowedOtherOrigins.includes(origin)
+  ) {
     res.header("Access-Control-Allow-Origin", origin);
   }
 
