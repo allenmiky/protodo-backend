@@ -1,5 +1,6 @@
 import express from "express";
 import dotenv from "dotenv";
+import cors from "cors"; // ✅ use cors package
 import connectDB from "./config/db.js";
 import authRoutes from "./routes/auth.js";
 import taskRoutes from "./routes/tasks.js";
@@ -10,31 +11,37 @@ connectDB();
 
 const app = express();
 
-/* ✅ CORS — Allow only your specific frontend */
- app.use((req, res, next) => {
-  const origin = req.headers.origin;
+/* ✅ Smart & Flexible CORS Configuration */
+const allowedOrigins = [
+  "http://localhost:5173", // vite dev
+  "http://localhost:3000", // react dev
+  /\.vercel\.app$/,        // ✅ any vercel frontend
+  /\.netlify\.app$/,       // ✅ any netlify frontend
+  /\.onrender\.com$/,      // ✅ any render frontend
+];
 
-  if (origin && origin.includes(".vercel.app")) {
-    res.header("Access-Control-Allow-Origin", origin); // allow this Vercel origin
-  }
-
-  res.header("Access-Control-Allow-Credentials", "true");
-  res.header(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
-  );
-  res.header(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, DELETE, PATCH, OPTIONS"
-  );
-
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(200);
-  }
-
-  next();
-});
-
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true); // allow mobile/postman etc.
+      if (allowedOrigins.some((pattern) => pattern instanceof RegExp ? pattern.test(origin) : pattern === origin)) {
+        callback(null, true);
+      } else {
+        console.warn("🚫 Blocked by CORS:", origin);
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: [
+      "Origin",
+      "X-Requested-With",
+      "Content-Type",
+      "Accept",
+      "Authorization",
+    ],
+  })
+);
 
 /* ✅ Body Parsers */
 app.use(express.json({ limit: "10mb" }));
@@ -53,6 +60,12 @@ app.get("/", (req, res) => {
 /* ✅ Default 404 */
 app.use((req, res) => {
   res.status(404).json({ error: "Route not found" });
+});
+
+/* ✅ Error Middleware */
+app.use((err, req, res, next) => {
+  console.error("❌ Server Error:", err.message);
+  res.status(500).json({ error: err.message });
 });
 
 /* ✅ Port Setup */
