@@ -1,5 +1,6 @@
 import express from "express";
 import dotenv from "dotenv";
+import cors from "cors";
 import connectDB from "./config/db.js";
 import authRoutes from "./routes/auth.js";
 import taskRoutes from "./routes/tasks.js";
@@ -10,62 +11,67 @@ connectDB();
 
 const app = express();
 
-/* ✅ CORS FIX — Allow any Vercel frontend + localhost + ngrok/serveo */
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
+// ✅ Flexible CORS for frontend (local + vercel + netlify + render)
+const allowedOrigins = [
+  "http://localhost:5173", // Vite dev
+  "http://localhost:5000", // React dev
+  /\.vercel\.app$/,        // any vercel frontend
+  /\.netlify\.app$/,       // any netlify frontend
+  /\.onrender\.com$/,      // any render frontend
+];
 
-  // ✅ Allowed origins list (other than Vercel)
-  const allowedOtherOrigins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "https://ngrok-free.dev",
-    "https://serveo.net"
-  ];
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true); // allow Postman / mobile apps
+      if (
+        allowedOrigins.some((pattern) =>
+          pattern instanceof RegExp ? pattern.test(origin) : pattern === origin
+        )
+      ) {
+        callback(null, true);
+      } else {
+        console.warn("🚫 Blocked by CORS:", origin);
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: [
+      "Origin",
+      "X-Requested-With",
+      "Content-Type",
+      "Accept",
+      "Authorization",
+    ],
+  })
+);
 
-  // ✅ Allow any Vercel domain OR other allowed origins
-  if (
-    (origin && origin.includes("vercel.app")) ||
-    allowedOtherOrigins.includes(origin)
-  ) {
-    res.header("Access-Control-Allow-Origin", origin);
-  }
-
-  res.header("Access-Control-Allow-Credentials", "true");
-  res.header(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
-  );
-  res.header(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, DELETE, PATCH, OPTIONS"
-  );
-
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(200);
-  }
-
-  next();
-});
-
-/* ✅ Body Parsers */
+// ✅ Body parsers
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-/* ✅ Routes */
+// ✅ API routes
 app.use("/api/auth", authRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/boards", boardRoutes);
 
-/* ✅ Health Check Route */
+// ✅ Health check
 app.get("/", (req, res) => {
   res.json({ status: "ok", message: "🚀 Backend running fine!" });
 });
 
-/* ✅ Default 404 */
+// ✅ 404 fallback
 app.use((req, res) => {
   res.status(404).json({ error: "Route not found" });
 });
 
-/* ✅ Port Setup */
+// ✅ Error handler
+app.use((err, req, res, next) => {
+  console.error("❌ Server Error:", err.message);
+  res.status(500).json({ error: err.message });
+});
+
+// ✅ Server listen
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));

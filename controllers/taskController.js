@@ -7,43 +7,37 @@ export const createTask = async (req, res) => {
   console.log("👤 User from auth:", req.user);
 
   try {
-    const { title, description, status, board } = req.body;
+    const { title, description, status, board, date, subtasks } = req.body;
 
-    if (!title) {
-      console.log("❌ Missing title");
-      return res.status(400).json({ message: "Title is required" });
-    }
+    if (!title) return res.status(400).json({ message: "Title required" });
+    if (!board) return res.status(400).json({ message: "Board required" });
 
-    if (!board) {
-      console.log("❌ Missing board id");
-      return res.status(400).json({ message: "Board is required" });
-    }
-
-    if (!req.user || !req.user.id) {
-      console.log("❌ Missing user info");
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-
-    const newTask = await Task.create({
+    const task = await Task.create({
       title,
       description,
       status: status || "todo",
       user: req.user.id,
-      board, // required in schema
+      board,
+      date,
+      subtasks: subtasks || [],
     });
 
-    console.log("✅ Task created:", newTask);
-    return res.status(201).json({ success: true, task: newTask });
+    // ✅ Return the **saved** task (sub-tasks embedded)
+    return res.status(201).json(task);
   } catch (err) {
-    console.error("❌ Server error:", err);
-    return res.status(500).json({ message: "Server error" });
+    console.error("❌ Create task error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };
+
+ 
 
 // ✅ Get all Tasks (for logged-in user)
 export const getTasks = async (req, res) => {
   try {
-    const tasks = await Task.find({ user: req.user.id || req.userId });
+    const tasks = await Task.find({ user: req.user.id || req.userId })
+      .lean()
+      .sort({ createdAt: -1 });
     res.json({ success: true, tasks });
   } catch (err) {
     console.error("❌ Error fetching tasks:", err);
@@ -51,12 +45,15 @@ export const getTasks = async (req, res) => {
   }
 };
 
-// ✅ Update Task
+// ✅ Update Task (returns updated doc with sub-tasks)
 export const updateTask = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const updatedTask = await Task.findByIdAndUpdate(id, req.body, { new: true });
+    const updatedTask = await Task.findByIdAndUpdate(id, req.body, {
+      new: true,
+      runValidators: true,
+    });
 
     if (!updatedTask) {
       return res.status(404).json({ message: "Task not found" });

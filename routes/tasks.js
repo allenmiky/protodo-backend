@@ -4,13 +4,14 @@ import auth from "../middleware/auth.js";
 
 const router = express.Router();
 
-// ✅ Get tasks for a specific board
+// ✅ Get tasks for a specific board (with sub-tasks)
 router.get("/:boardId", auth, async (req, res) => {
   try {
-    const tasks = await Task.find({ board: req.params.boardId }).sort({
-      createdAt: -1,
-    });
-    res.json(tasks);
+    const tasks = await Task.find({ board: req.params.boardId })
+      .lean() // plain objects
+      .sort({ createdAt: -1 });
+
+    res.json(tasks); // ✅ sub-tasks already embedded
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
   }
@@ -19,43 +20,38 @@ router.get("/:boardId", auth, async (req, res) => {
 // ✅ Create a new task for a board
 router.post("/", auth, async (req, res) => {
   try {
-    const { title, description, status, board, date } = req.body; // ✅ added date here
+    const { title, description, status, board, date, subtasks } = req.body;
 
-    if (!title) {
-      return res.status(400).json({ message: "Title is required" });
-    }
+    if (!title) return res.status(400).json({ message: "Title is required" });
+    if (!board) return res.status(400).json({ message: "Board ID is required" });
 
-    if (!board) {
-      return res.status(400).json({ message: "Board ID is required" });
-    }
-
-    const task = new Task({
+    const task = await Task.create({
       title,
       description,
       status: status || "todo",
       board,
       user: req.user.id,
-      date, // ✅ store date in DB
+      date,
+      subtasks: subtasks || [],
     });
 
-    await task.save();
-    res.status(201).json(task);
+    res.status(201).json(task); // ✅ returns full task with sub-tasks
   } catch (err) {
     console.error("❌ Task creation error:", err.message);
     res.status(500).json({ message: "Server error" });
   }
 });
 
-
-
-// ✅ Update a task
+// ✅ Update a task (returns updated doc with sub-tasks)
 router.put("/:id", auth, async (req, res) => {
   try {
-    const updatedTask = await Task.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
-    );
+    const updatedTask = await Task.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+      runValidators: true,
+    });
+
+    if (!updatedTask) return res.status(404).json({ message: "Task not found" });
+
     res.json(updatedTask);
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
@@ -65,7 +61,9 @@ router.put("/:id", auth, async (req, res) => {
 // ✅ Delete a task
 router.delete("/:id", auth, async (req, res) => {
   try {
-    await Task.findByIdAndDelete(req.params.id);
+    const deleted = await Task.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ message: "Task not found" });
+
     res.json({ message: "Task deleted" });
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
